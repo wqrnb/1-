@@ -302,6 +302,12 @@
             animation: none;
         }
         
+        .btn-audio:disabled {
+            background: rgba(100, 100, 100, 0.5);
+            cursor: not-allowed;
+            animation: none;
+        }
+        
         @keyframes pulse {
             0%, 100% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.4); }
             50% { box-shadow: 0 0 0 10px rgba(155, 89, 182, 0); }
@@ -450,16 +456,6 @@
             background: rgba(255, 255, 255, 0.3);
         }
         
-        /* 音频可视化器 */
-        .audio-viz-bar {
-            position: absolute;
-            bottom: 0;
-            width: 4px;
-            background: linear-gradient(to top, #ff6b6b, #feca57);
-            border-radius: 2px 2px 0 0;
-            transition: height 0.05s ease;
-        }
-        
         /* 音频信息面板 */
         .audio-info {
             position: fixed;
@@ -476,6 +472,7 @@
             visibility: hidden;
             transition: all 0.3s ease;
             z-index: 100;
+            min-width: 180px;
         }
         
         .audio-info.active {
@@ -527,9 +524,38 @@
             box-shadow: 0 0 15px #ff6b6b;
         }
         
-        /* 频谱样式 */
+        .audio-status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+        
+        .audio-status.waiting {
+            background: rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+        }
+        
+        .audio-status.active {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4caf50;
+        }
+        
+        .audio-status.error {
+            background: rgba(244, 67, 54, 0.3);
+            color: #f44336;
+        }
+        
+        /* 频谱样式选择 */
+        .spectrum-modes {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
         .spectrum-mode-btn {
-            padding: 8px 16px;
+            padding: 8px 12px;
             border-radius: 8px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             background: rgba(255, 255, 255, 0.05);
@@ -551,10 +577,53 @@
             color: white;
         }
         
-        .spectrum-modes {
+        /* 启动音频提示弹窗 */
+        .audio-start-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
             display: flex;
-            gap: 8px;
-            margin-top: 10px;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .audio-start-modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .audio-start-content {
+            background: rgba(30, 30, 50, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            max-width: 400px;
+            color: white;
+        }
+        
+        .audio-start-content h2 {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .audio-start-content p {
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .audio-start-content .btn {
+            padding: 15px 40px;
+            font-size: 16px;
         }
     </style>
 </head>
@@ -565,7 +634,7 @@
     <!-- 音频信息面板 -->
     <div class="audio-info" id="audioInfo">
         <h4>🎵 音频可视化</h4>
-        <div>状态: <span id="audioStatus">未启动</span></div>
+        <div>状态: <span id="audioStatusText">未启动</span></div>
         <div>输入: <span id="audioSource">-</span></div>
         <div class="audio-level">
             <span>音量</span>
@@ -573,6 +642,17 @@
                 <div class="audio-level-fill" id="audioLevelFill"></div>
             </div>
             <div class="beat-indicator" id="beatIndicator"></div>
+        </div>
+    </div>
+    
+    <!-- 音频启动提示 -->
+    <div class="audio-start-modal" id="audioStartModal">
+        <div class="audio-start-content">
+            <h2>🎵 启动音频可视化</h2>
+            <p>需要访问您的麦克风来分析音频。<br>音频数据仅在本地处理，不会上传或保存。</p>
+            <button class="btn btn-audio" id="modalStartAudioBtn">🎤 允许并启动</button>
+            <br><br>
+            <button class="btn btn-secondary" id="modalCancelBtn" style="background: transparent; border: none;">取消</button>
         </div>
     </div>
     
@@ -588,8 +668,9 @@
                     <button class="btn btn-audio" id="audioToggleBtn">
                         🎤 启动麦克风可视化
                     </button>
-                    <div style="color: rgba(255,255,255,0.5); font-size: 11px; margin-top: 8px; text-align: center;">
-                        需要麦克风权限，音频数据仅在本地处理
+                    <div style="color: rgba(255,255,255,0.5); font-size: 11px; margin-top: 8px; text-align: center; line-height: 1.5;">
+                        需要麦克风权限，音频数据仅在本地处理<br>
+                        <span style="color: #ff6b6b;">⚠️ 需要 HTTPS 或 localhost 环境</span>
                     </div>
                 </div>
                 
@@ -609,14 +690,6 @@
                         <input type="range" id="audioSensitivity" min="0.5" max="5" step="0.1" value="2">
                         <span class="slider-value" id="audioSensitivityValue">2.0</span>
                     </div>
-                </div>
-                
-                <div class="option-row">
-                    <label>🎵 低音增强</label>
-                    <label class="checkbox-wrapper">
-                        <input type="checkbox" id="bassBoost" checked>
-                        <span class="checkbox-slider"></span>
-                    </label>
                 </div>
             </div>
             
@@ -797,9 +870,8 @@
             paused: false,
             // 音频配置
             audioEnabled: false,
-            audioMode: "particles", // particles, bars, circular, wave
-            audioSensitivity: 2,
-            bassBoost: true
+            audioMode: "particles",
+            audioSensitivity: 2
         };
         
         // 主题颜色配置
@@ -826,16 +898,16 @@
         // 预设配置
         const presets = {
             default: {
-                theme: "pink",
-                animationSpeed: 0.7,
-                particleCount: 80,
-                textCount: 20,
-                fontSize: 70,
+                theme: "rainbow",
+                animationSpeed: 1,
+                particleCount: 50,
+                textCount: 15,
+                fontSize: 80,
                 glowEffect: true,
-                rotationEnabled: false,
+                rotationEnabled: true,
                 bounceEffect: true,
                 backgroundStyle: "gradient",
-                audioMode: "circular"
+                audioMode: "particles"
             },
             romantic: {
                 theme: "pink",
@@ -910,6 +982,7 @@
         let audioLevel = 0;
         let beatDetected = false;
         let beatTimeout = null;
+        let isAudioInitialized = false;
         
         // 频谱柱状图
         let spectrumBars = [];
@@ -929,14 +1002,62 @@
             }
         }
         
+        // 检查浏览器支持
+        function checkAudioSupport() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                updateAudioStatus('unsupported', '浏览器不支持');
+                return false;
+            }
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                updateAudioStatus('error', '需要 HTTPS');
+                return false;
+            }
+            return true;
+        }
+        
+        function updateAudioStatus(status, message) {
+            const statusEl = document.getElementById('audioStatusText');
+            const audioBtn = document.getElementById('audioToggleBtn');
+            
+            if (statusEl) {
+                statusEl.textContent = message;
+                statusEl.className = 'audio-status ' + status;
+            }
+            
+            if (status === 'active') {
+                audioBtn.textContent = '⏹️ 停止音频可视化';
+                audioBtn.classList.add('active');
+            } else if (status === 'error' || status === 'unsupported') {
+                audioBtn.textContent = '❌ ' + message;
+                audioBtn.disabled = true;
+            } else {
+                audioBtn.textContent = '🎤 启动麦克风可视化';
+                audioBtn.classList.remove('active');
+            }
+        }
+        
         async function initAudio() {
+            if (!checkAudioSupport()) {
+                showToast('❌ 当前环境不支持音频可视化');
+                return false;
+            }
+            
             try {
+                updateAudioStatus('waiting', '启动中...');
+                
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
                 analyser.fftSize = 256;
                 analyser.smoothingTimeConstant = 0.8;
                 
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }
+                });
+                
                 microphone = audioContext.createMediaStreamSource(stream);
                 microphone.connect(analyser);
                 
@@ -945,17 +1066,26 @@
                 frequencyData = new Uint8Array(bufferLength);
                 
                 config.audioEnabled = true;
+                isAudioInitialized = true;
                 initSpectrumBars();
                 
-                document.getElementById('audioStatus').textContent = '运行中';
+                updateAudioStatus('active', '运行中');
                 document.getElementById('audioSource').textContent = '麦克风';
                 document.getElementById('audioInfo').classList.add('active');
                 
                 showToast('🎵 音频可视化已启动！');
+                return true;
             } catch (err) {
                 console.error('音频初始化失败:', err);
-                showToast('❌ 无法访问麦克风，请检查权限设置');
-                stopAudio();
+                let errorMsg = '权限被拒绝';
+                if (err.name === 'NotAllowedError') {
+                    errorMsg = '麦克风权限被拒绝';
+                } else if (err.name === 'NotFoundError') {
+                    errorMsg = '未找到麦克风';
+                }
+                updateAudioStatus('error', errorMsg);
+                showToast('❌ ' + errorMsg);
+                return false;
             }
         }
         
@@ -970,8 +1100,9 @@
             }
             analyser = null;
             config.audioEnabled = false;
+            isAudioInitialized = false;
             
-            document.getElementById('audioStatus').textContent = '已停止';
+            updateAudioStatus('waiting', '已停止');
             document.getElementById('audioSource').textContent = '-';
             document.getElementById('audioInfo').classList.remove('active');
             document.getElementById('audioLevelFill').style.width = '0%';
@@ -987,7 +1118,7 @@
             // 计算音量
             let sum = 0;
             let bassSum = 0;
-            const bassRange = Math.floor(frequencyData.length * 0.1); // 低频区域
+            const bassRange = Math.floor(frequencyData.length * 0.1);
             
             for (let i = 0; i < dataArray.length; i++) {
                 const value = (dataArray[i] - 128) / 128;
@@ -1001,14 +1132,12 @@
             const rms = Math.sqrt(sum / dataArray.length);
             audioLevel = Math.min(100, rms * 100 * config.audioSensitivity);
             
-            // 检测节拍（低频能量突增）
+            // 检测节拍
             const bassAvg = bassSum / bassRange;
-            const beatThreshold = config.bassBoost ? 150 : 180;
+            const beatThreshold = 150;
             if (bassAvg > beatThreshold && !beatDetected) {
                 beatDetected = true;
                 document.getElementById('beatIndicator').classList.add('active');
-                
-                // 节拍触发效果
                 onBeat();
                 
                 clearTimeout(beatTimeout);
@@ -1022,28 +1151,17 @@
             document.getElementById('audioLevelFill').style.width = audioLevel + '%';
             
             // 更新频谱柱状图
-            updateSpectrumBars();
-        }
-        
-        function updateSpectrumBars() {
-            if (!frequencyData) return;
-            
             const step = Math.floor(frequencyData.length / barCount);
             for (let i = 0; i < barCount; i++) {
                 const value = frequencyData[i * step];
                 spectrumBars[i].targetHeight = (value / 255) * canvas.height * 0.5 * config.audioSensitivity;
-                // 平滑过渡
                 spectrumBars[i].height += (spectrumBars[i].targetHeight - spectrumBars[i].height) * 0.2;
             }
         }
         
         function onBeat() {
-            // 节拍触发：所有文字放大
-            texts.forEach(t => {
-                t.beatScale = 1.5;
-            });
+            texts.forEach(t => { t.beatScale = 1.5; });
             
-            // 添加粒子爆发效果
             if (config.audioMode === 'particles') {
                 for (let i = 0; i < 5; i++) {
                     particles.push(new AudioParticle());
@@ -1052,7 +1170,7 @@
         }
         
         function drawAudioVisualization() {
-            if (!config.audioEnabled) return;
+            if (!config.audioEnabled || !analyser) return;
             
             ctx.save();
             
@@ -1066,17 +1184,12 @@
                 case 'wave':
                     drawWaveform();
                     break;
-                case 'particles':
-                    drawAudioParticles();
-                    break;
             }
             
             ctx.restore();
         }
         
         function drawSpectrumBars() {
-            const barWidth = canvas.width / barCount;
-            
             spectrumBars.forEach((bar, i) => {
                 const hue = (i / barCount) * 360;
                 const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - bar.height);
@@ -1084,13 +1197,12 @@
                 gradient.addColorStop(1, `hsl(${hue}, 100%, 70%)`);
                 
                 ctx.fillStyle = gradient;
-                ctx.fillRect(i * barWidth, canvas.height - bar.height, barWidth - 2, bar.height);
+                ctx.fillRect(bar.x, canvas.height - bar.height, bar.width, bar.height);
                 
-                // 顶部发光点
                 ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
                 ctx.shadowBlur = 10;
                 ctx.fillStyle = '#fff';
-                ctx.fillRect(i * barWidth, canvas.height - bar.height - 4, barWidth - 2, 4);
+                ctx.fillRect(bar.x, canvas.height - bar.height - 4, bar.width, 4);
                 ctx.shadowBlur = 0;
             });
         }
@@ -1104,8 +1216,6 @@
             
             spectrumBars.forEach((bar, i) => {
                 const angle = (i / barCount) * Math.PI * 2;
-                const barHeight = bar.height * 0.5;
-                
                 ctx.save();
                 ctx.rotate(angle);
                 
@@ -1114,7 +1224,7 @@
                 ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
                 ctx.shadowBlur = 10;
                 
-                ctx.fillRect(0, radius, 4, barHeight);
+                ctx.fillRect(0, radius, 4, bar.height * 0.5);
                 ctx.restore();
             });
         }
@@ -1135,11 +1245,8 @@
                 const v = dataArray[i] / 128.0;
                 const y = (canvas.height / 2) + (v - 1) * canvas.height * 0.3 * config.audioSensitivity;
                 
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
                 
                 x += sliceWidth;
             }
@@ -1153,11 +1260,8 @@
                 const v = dataArray[i] / 128.0;
                 const y = (canvas.height / 2) - (v - 1) * canvas.height * 0.3 * config.audioSensitivity;
                 
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
                 
                 x += sliceWidth;
             }
@@ -1165,10 +1269,6 @@
             ctx.strokeStyle = themes[config.theme][2];
             ctx.shadowColor = themes[config.theme][2];
             ctx.stroke();
-        }
-        
-        function drawAudioParticles() {
-            // 音频粒子效果已在粒子系统中处理
         }
         
         // 音频粒子类
@@ -1239,8 +1339,8 @@
             update() {
                 if (config.paused) return;
                 
-                // 音频响应：根据音量调整速度
-                if (config.audioEnabled) {
+                // 音频响应
+                if (config.audioEnabled && analyser) {
                     const speedMultiplier = 1 + (audioLevel / 100) * 0.5;
                     this.x += this.vx * speedMultiplier;
                     this.y += this.vy * speedMultiplier;
@@ -1316,8 +1416,7 @@
             update() {
                 if (config.paused) return;
                 
-                // 音频响应
-                if (config.audioEnabled) {
+                if (config.audioEnabled && analyser) {
                     const speedMultiplier = 1 + (audioLevel / 100);
                     this.x += this.speedX * speedMultiplier;
                     this.y += this.speedY * speedMultiplier;
@@ -1335,13 +1434,10 @@
             
             draw() {
                 ctx.save();
-                // 音频响应：音量高时更亮
-                const audioBoost = config.audioEnabled ? (audioLevel / 100) * 0.3 : 0;
+                const audioBoost = (config.audioEnabled && analyser) ? (audioLevel / 100) * 0.3 : 0;
+                const sizeMultiplier = beatDetected ? 1.5 : 1;
                 ctx.globalAlpha = this.alpha + Math.sin(this.pulse) * 0.2 + audioBoost;
                 ctx.fillStyle = this.color;
-                
-                // 音频响应：节拍时放大
-                const sizeMultiplier = beatDetected ? 1.5 : 1;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size * sizeMultiplier, 0, Math.PI * 2);
                 ctx.fill();
@@ -1355,18 +1451,15 @@
             particles = [];
             audioParticles = [];
             
-            // 添加主文字
             config.mainText.forEach(text => {
                 if (text.trim()) texts.push(new FloatingText(text.trim(), true));
             });
             
-            // 添加装饰文字
             for (let i = 0; i < config.textCount; i++) {
                 const text = config.subText[Math.floor(Math.random() * config.subText.length)];
                 texts.push(new FloatingText(text, false));
             }
             
-            // 添加粒子
             for (let i = 0; i < config.particleCount; i++) {
                 particles.push(new Particle());
             }
@@ -1388,24 +1481,18 @@
         }
         
         function animate() {
-            // 分析音频
             analyzeAudio();
             
-            // 清除画布（带拖尾效果）
             ctx.fillStyle = 'rgba(26, 26, 46, 0.15)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // 绘制音频可视化
             drawAudioVisualization();
             
-            // 更新和绘制粒子
             particles.forEach(p => { p.update(); p.draw(); });
             
-            // 音频粒子
             audioParticles = audioParticles.filter(p => p.life > 0);
             audioParticles.forEach(p => { p.update(); p.draw(); });
             
-            // 更新和绘制文字
             texts.forEach(t => { t.update(); t.draw(); });
             
             updateClock();
@@ -1443,6 +1530,7 @@
         // ==================== UI 控制 ====================
         const menuBtn = document.getElementById('menuBtn');
         const submenu = document.getElementById('submenu');
+        const audioStartModal = document.getElementById('audioStartModal');
         
         menuBtn.addEventListener('click', () => {
             menuBtn.classList.toggle('active');
@@ -1458,17 +1546,36 @@
         
         // 音频控制
         const audioToggleBtn = document.getElementById('audioToggleBtn');
+        
+        function showAudioModal() {
+            if (!checkAudioSupport()) {
+                showToast('❌ 当前环境不支持音频可视化');
+                return;
+            }
+            audioStartModal.classList.add('show');
+        }
+        
+        function hideAudioModal() {
+            audioStartModal.classList.remove('show');
+        }
+        
         audioToggleBtn.addEventListener('click', () => {
             if (config.audioEnabled) {
                 stopAudio();
-                audioToggleBtn.textContent = '🎤 启动麦克风可视化';
-                audioToggleBtn.classList.remove('active');
             } else {
-                initAudio();
-                audioToggleBtn.textContent = '⏹️ 停止音频可视化';
-                audioToggleBtn.classList.add('active');
+                showAudioModal();
             }
         });
+        
+        document.getElementById('modalStartAudioBtn').addEventListener('click', async () => {
+            hideAudioModal();
+            const success = await initAudio();
+            if (!success) {
+                showToast('❌ 启动失败，请检查麦克风权限');
+            }
+        });
+        
+        document.getElementById('modalCancelBtn').addEventListener('click', hideAudioModal);
         
         // 频谱模式选择
         document.querySelectorAll('.spectrum-mode-btn').forEach(btn => {
@@ -1483,11 +1590,6 @@
         document.getElementById('audioSensitivity').addEventListener('input', (e) => {
             config.audioSensitivity = parseFloat(e.target.value);
             document.getElementById('audioSensitivityValue').textContent = config.audioSensitivity.toFixed(1);
-        });
-        
-        // 低音增强
-        document.getElementById('bassBoost').addEventListener('change', (e) => {
-            config.bassBoost = e.target.checked;
         });
         
         // 预设按钮
@@ -1650,9 +1752,17 @@
                         menuBtn.classList.remove('active');
                         submenu.classList.remove('active');
                     }
+                    if (audioStartModal.classList.contains('show')) {
+                        hideAudioModal();
+                    }
                     break;
             }
         });
+        
+        // 检查浏览器支持
+        if (!checkAudioSupport()) {
+            updateAudioStatus('error', '需要 HTTPS');
+        }
         
         // ==================== 启动 ====================
         init();
