@@ -909,7 +909,11 @@
             // 音频配置
             audioEnabled: false,
             audioMode: "circular",
-            audioSensitivity: 2
+            audioSensitivity: 2,
+            // 回声功能
+            echoMode: false,
+            echoDelay: 500,
+            echoDuration: 2000
         };
         
         // 主题颜色配置
@@ -1040,6 +1044,11 @@
         let beatTimeout = null;
         let isAudioInitialized = false;
         let isAudioInitializing = false;
+        // 回声相关
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let isRecording = false;
+        let echoTimeout = null;
         
         // 频谱柱状图
         let spectrumBars = [];
@@ -1162,6 +1171,9 @@
                 hideAudioOverlay();
                 showToast('🎵 音频可视化已启动！');
                 
+                // 设置回声录音
+                setupEchoRecorder(stream);
+                
                 isAudioInitializing = false;
                 return true;
             } catch (err) {
@@ -1188,6 +1200,66 @@
             }
         }
         
+        // ========== 回声功能 ==========
+        function setupEchoRecorder(stream) {
+            if (!MediaRecorder.isTypeSupported('audio/webm')) {
+                console.log('MediaRecorder 不支持');
+                return;
+            }
+            
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+            
+            mediaRecorder.onstop = () => {
+                if (recordedChunks.length === 0) return;
+                const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                const audioUrl = URL.createObjectURL(blob);
+                const audio = new Audio(audioUrl);
+                
+                audio.onended = () => URL.revokeObjectURL(audioUrl);
+                
+                // 延迟播放实现回声效果
+                setTimeout(() => {
+                    audio.play().catch(() => {});
+                    showEchoStatus('🔊 回声播放中...');
+                    setTimeout(() => showEchoStatus(''), 1000);
+                }, config.echoDelay);
+                
+                recordedChunks = [];
+            };
+        }
+        
+        function startRecording() {
+            if (!config.echoMode || !mediaRecorder || isRecording) return;
+            recordedChunks = [];
+            mediaRecorder.start(100);
+            isRecording = true;
+            document.getElementById('recordingStatus').innerHTML = '<span class="recording-indicator"></span>录音中';
+            showEchoStatus('🎙️ 检测声音，录音中...');
+            
+            // 最大录音时长限制
+            echoTimeout = setTimeout(() => {
+                if (isRecording) stopRecording();
+            }, config.echoDuration);
+        }
+        
+        function stopRecording() {
+            if (!isRecording) return;
+            clearTimeout(echoTimeout);
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+            document.getElementById('recordingStatus').innerHTML = '';
+        }
+        
+        function showEchoStatus(msg) {
+            document.getElementById('echoStatus').textContent = msg;
+        }
+        
         function stopAudio() {
             // 停止所有音频轨道
             if (microphone && microphone.mediaStream) {
@@ -1211,7 +1283,6 @@
             analyser = null;
             dataArray = null;
             frequencyData = null;
-            config.audioEnabled = false;
             isAudioInitialized = false;
             isAudioInitializing = false;
             audioLevel = 0;
