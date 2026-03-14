@@ -17,6 +17,7 @@
             overflow: hidden;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             font-family: 'Segoe UI', Microsoft YaHei, Arial, sans-serif;
+            user-select: none;
         }
         
         #canvas {
@@ -27,31 +28,681 @@
             height: 100%;
         }
         
-        .hint {
+        /* 控制面板 */
+        .control-panel {
             position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 14px;
-            pointer-events: none;
-            animation: fadeOut 3s ease-in-out 2s forwards;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            transition: all 0.3s ease;
         }
         
-        @keyframes fadeOut {
-            to { opacity: 0; }
+        .menu-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .menu-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+        
+        .menu-btn.active {
+            transform: rotate(45deg);
+            background: rgba(255, 107, 107, 0.3);
+        }
+        
+        /* 二级菜单 */
+        .submenu {
+            position: absolute;
+            top: 60px;
+            right: 0;
+            width: 320px;
+            background: rgba(20, 20, 35, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .submenu.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        
+        .submenu h3 {
+            color: white;
+            font-size: 16px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .submenu-section {
+            margin-bottom: 20px;
+        }
+        
+        .submenu-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .section-title {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+        
+        /* 选项组 */
+        .option-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .option-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: white;
+            font-size: 13px;
+        }
+        
+        .option-row label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* 输入框 */
+        input[type="text"], select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: white;
+            font-size: 13px;
+            width: 100%;
+            outline: none;
+            transition: all 0.2s;
+        }
+        
+        input[type="text"]:focus, select:focus {
+            border-color: rgba(255, 107, 107, 0.5);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        select option {
+            background: #1a1a2e;
+            color: white;
+        }
+        
+        /* 滑块 */
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+        
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #ff6b6b;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+        }
+        
+        .slider-value {
+            min-width: 40px;
+            text-align: right;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        /* 复选框 */
+        .checkbox-wrapper {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+        
+        .checkbox-wrapper input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .checkbox-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            transition: 0.3s;
+        }
+        
+        .checkbox-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        
+        input:checked + .checkbox-slider {
+            background: #ff6b6b;
+        }
+        
+        input:checked + .checkbox-slider:before {
+            transform: translateX(20px);
+        }
+        
+        /* 按钮组 */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* 快捷预设 */
+        .presets {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .preset-btn {
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .preset-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        
+        .preset-btn.active {
+            background: rgba(255, 107, 107, 0.3);
+            border-color: #ff6b6b;
+            color: white;
+        }
+        
+        /* 颜色选择器 */
+        .color-picker {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .color-option {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .color-option:hover {
+            transform: scale(1.2);
+        }
+        
+        .color-option.active {
+            border-color: white;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+        
+        .color-option.active::after {
+            content: "✓";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        /* 时钟 */
+        #clock {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 120px;
+            font-weight: 200;
+            color: rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+            z-index: 0;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 10px;
+            transition: opacity 0.5s;
+        }
+        
+        #clock.hidden {
+            opacity: 0;
+        }
+        
+        /* 提示信息 */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(20, 20, 35, 0.95);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 14px;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 2000;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        /* 快捷键提示 */
+        .shortcuts {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 12px;
+            z-index: 100;
+        }
+        
+        .shortcuts kbd {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin: 0 4px;
+        }
+        
+        /* 滚动条美化 */
+        .submenu::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .submenu::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .submenu::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        
+        .submenu::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
         }
     </style>
 </head>
 <body>
     <canvas id="canvas"></canvas>
-    <div class="hint">按任意键或点击鼠标退出提示</div>
+    <div id="clock" class="hidden"></div>
+    
+    <!-- 控制面板 -->
+    <div class="control-panel">
+        <button class="menu-btn" id="menuBtn" title="设置">⚙️</button>
+        
+        <div class="submenu" id="submenu">
+            <!-- 快速预设 -->
+            <div class="submenu-section">
+                <h3>⚡ 快速预设</h3>
+                <div class="presets">
+                    <button class="preset-btn active" data-preset="default">默认</button>
+                    <button class="preset-btn" data-preset="romantic">浪漫</button>
+                    <button class="preset-btn" data-preset="energy">活力</button>
+                    <button class="preset-btn" data-preset="minimal">极简</button>
+                    <button class="preset-btn" data-preset="party">派对</button>
+                </div>
+            </div>
+            
+            <!-- 文字设置 -->
+            <div class="submenu-section">
+                <h3>📝 文字设置</h3>
+                <div class="option-group">
+                    <input type="text" id="mainText" placeholder="主文字 (逗号分隔多个)" value="淇淇好萌 ✨,💖 淇淇,✨ 超萌">
+                    <input type="text" id="subText" placeholder="装饰文字 (逗号分隔)" value="可爱,萌萌哒,哇~,❤,🌟,💕,✨,🎀,💝,💗">
+                </div>
+            </div>
+            
+            <!-- 颜色主题 -->
+            <div class="submenu-section">
+                <h3>🎨 颜色主题</h3>
+                <div class="color-picker" id="colorTheme">
+                    <div class="color-option active" data-theme="rainbow" style="background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb)" title="彩虹"></div>
+                    <div class="color-option" data-theme="warm" style="background: linear-gradient(135deg, #ff6b6b, #feca57, #ff9f43)" title="暖色"></div>
+                    <div class="color-option" data-theme="cool" style="background: linear-gradient(135deg, #48dbfb, #54a0ff, #5f27cd)" title="冷色"></div>
+                    <div class="color-option" data-theme="nature" style="background: linear-gradient(135deg, #009432, #78e08f, #38ada9)" title="自然"></div>
+                    <div class="color-option" data-theme="pink" style="background: linear-gradient(135deg, #ff9ff3, #f368e0, #ff6b9d)" title="粉色"></div>
+                    <div class="color-option" data-theme="gold" style="background: linear-gradient(135deg, #ffd700, #ffa502, #ff7f50)" title="金色"></div>
+                </div>
+            </div>
+            
+            <!-- 背景设置 -->
+            <div class="submenu-section">
+                <h3>🌌 背景设置</h3>
+                <div class="option-row">
+                    <label>背景风格</label>
+                    <select id="bgStyle">
+                        <option value="gradient">🌌 深蓝渐变</option>
+                        <option value="dark">🌙 暗黑</option>
+                        <option value="light">☁️ 明亮</option>
+                        <option value="starry">⭐ 星空</option>
+                        <option value="sunset">🌅 日落</option>
+                        <option value="ocean">🌊 海洋</option>
+                        <option value="purple">💜 紫罗兰</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- 动画设置 -->
+            <div class="submenu-section">
+                <h3>✨ 动画效果</h3>
+                <div class="option-group">
+                    <div class="option-row">
+                        <label>⚡ 动画速度</label>
+                        <div class="slider-container">
+                            <input type="range" id="speed" min="0.2" max="3" step="0.1" value="1">
+                            <span class="slider-value" id="speedValue">1.0x</span>
+                        </div>
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>🔢 装饰文字数量</label>
+                        <div class="slider-container">
+                            <input type="range" id="textCount" min="0" max="50" value="15">
+                            <span class="slider-value" id="textCountValue">15</span>
+                        </div>
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>✨ 粒子数量</label>
+                        <div class="slider-container">
+                            <input type="range" id="particleCount" min="0" max="150" value="50">
+                            <span class="slider-value" id="particleCountValue">50</span>
+                        </div>
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>🔤 字体大小</label>
+                        <div class="slider-container">
+                            <input type="range" id="fontSize" min="40" max="150" value="80">
+                            <span class="slider-value" id="fontSizeValue">80</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 效果开关 -->
+            <div class="submenu-section">
+                <h3>🔧 效果开关</h3>
+                <div class="option-group">
+                    <div class="option-row">
+                        <label>💫 发光效果</label>
+                        <label class="checkbox-wrapper">
+                            <input type="checkbox" id="glowEffect" checked>
+                            <span class="checkbox-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>🔄 旋转效果</label>
+                        <label class="checkbox-wrapper">
+                            <input type="checkbox" id="rotationEffect" checked>
+                            <span class="checkbox-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>⚡ 边界反弹</label>
+                        <label class="checkbox-wrapper">
+                            <input type="checkbox" id="bounceEffect" checked>
+                            <span class="checkbox-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>🕐 显示时钟</label>
+                        <label class="checkbox-wrapper">
+                            <input type="checkbox" id="showClock">
+                            <span class="checkbox-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>🖱️ 鼠标交互</label>
+                        <label class="checkbox-wrapper">
+                            <input type="checkbox" id="mouseInteraction" checked>
+                            <span class="checkbox-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 操作按钮 -->
+            <div class="submenu-section">
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="applyBtn">✅ 应用设置</button>
+                    <button class="btn btn-secondary" id="resetBtn">🔄 重置</button>
+                </div>
+            </div>
+            
+            <!-- 关于 -->
+            <div class="submenu-section" style="text-align: center; color: rgba(255,255,255,0.4); font-size: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                淇淇好萌屏保 v2.0 💕
+            </div>
+        </div>
+    </div>
+    
+    <!-- 快捷键提示 -->
+    <div class="shortcuts">
+        <kbd>S</kbd> 设置 <kbd>F</kbd> 全屏 <kbd>R</kbd> 重置 <kbd>Space</kbd> 暂停
+    </div>
+    
+    <!-- Toast 提示 -->
+    <div class="toast" id="toast"></div>
     
     <script>
+        // ==================== 配置 ====================
+        const config = {
+            mainText: ["淇淇好萌 ✨", "💖 淇淇", "✨ 超萌"],
+            subText: ["可爱", "萌萌哒", "哇~", "❤", "🌟", "💕", "✨", "🎀"],
+            theme: "rainbow",
+            animationSpeed: 1,
+            particleCount: 50,
+            textCount: 15,
+            fontSize: 80,
+            glowEffect: true,
+            rotationEnabled: true,
+            bounceEffect: true,
+            showClock: false,
+            mouseInteraction: true,
+            backgroundStyle: "gradient",
+            paused: false
+        };
+        
+        // 主题颜色配置
+        const themes = {
+            rainbow: ["#ff6b6b", "#feca57", "#48dbfb", "#ff9ff3", "#54a0ff", "#5f27cd", "#00d2d3", "#ff9f43"],
+            warm: ["#ff6b6b", "#feca57", "#ff9ff3", "#ff9f43", "#ee5a24", "#ff6348", "#ff7675", "#fdcb6e"],
+            cool: ["#48dbfb", "#54a0ff", "#5f27cd", "#00d2d3", "#0652dd", "#9980fa", "#74b9ff", "#a29bfe"],
+            nature: ["#009432", "#78e08f", "#38ada9", "#60a3bc", "#f8b500", "#e58e26", "#b8e994", "#82ccdd"],
+            pink: ["#ff9ff3", "#f368e0", "#ff6b9d", "#ff9ff3", "#fd79a8", "#e84393", "#f8a5c2", "#f78fb3"],
+            gold: ["#ffd700", "#ffa502", "#ff7f50", "#ff6348", "#ff9f43", "#ffc048", "#f7b731", "#e1b12c"]
+        };
+        
+        // 背景配置
+        const backgrounds = {
+            gradient: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
+            dark: "#0a0a0a",
+            light: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+            starry: "radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%)",
+            sunset: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            ocean: "linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%)",
+            purple: "linear-gradient(135deg, #2d1b69 0%, #0f0c29 100%)"
+        };
+        
+        // 预设配置
+        const presets = {
+            default: {
+                theme: "rainbow",
+                animationSpeed: 1,
+                particleCount: 50,
+                textCount: 15,
+                fontSize: 80,
+                glowEffect: true,
+                rotationEnabled: true,
+                bounceEffect: true,
+                backgroundStyle: "gradient"
+            },
+            romantic: {
+                theme: "pink",
+                animationSpeed: 0.7,
+                particleCount: 80,
+                textCount: 20,
+                fontSize: 70,
+                glowEffect: true,
+                rotationEnabled: false,
+                bounceEffect: true,
+                backgroundStyle: "gradient"
+            },
+            energy: {
+                theme: "warm",
+                animationSpeed: 2,
+                particleCount: 30,
+                textCount: 25,
+                fontSize: 90,
+                glowEffect: true,
+                rotationEnabled: true,
+                bounceEffect: true,
+                backgroundStyle: "sunset"
+            },
+            minimal: {
+                theme: "cool",
+                animationSpeed: 0.5,
+                particleCount: 10,
+                textCount: 5,
+                fontSize: 100,
+                glowEffect: false,
+                rotationEnabled: false,
+                bounceEffect: true,
+                backgroundStyle: "dark"
+            },
+            party: {
+                theme: "rainbow",
+                animationSpeed: 2.5,
+                particleCount: 100,
+                textCount: 30,
+                fontSize: 75,
+                glowEffect: true,
+                rotationEnabled: true,
+                bounceEffect: true,
+                backgroundStyle: "purple"
+            }
+        };
+        
+        // ==================== Canvas 设置 ====================
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+        let texts = [];
+        let particles = [];
+        let animationId;
         
-        // 设置画布大小
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -59,103 +710,78 @@
         resize();
         window.addEventListener('resize', resize);
         
-        // 彩虹颜色
-        const rainbowColors = [
-            '#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', 
-            '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43',
-            '#ee5a24', '#009432', '#0652dd', '#9980fa'
-        ];
-        
-        // 创建文字对象
+        // ==================== 类定义 ====================
         class FloatingText {
             constructor(text, isMain = false) {
                 this.text = text;
                 this.isMain = isMain;
-                
-                // 随机大小
-                this.fontSize = isMain ? 80 + Math.random() * 40 : 30 + Math.random() * 50;
-                
-                // 测量文字尺寸
+                this.fontSize = isMain ? config.fontSize + Math.random() * 40 : config.fontSize * 0.4 + Math.random() * 30;
                 ctx.font = `bold ${this.fontSize}px 'Segoe UI', Microsoft YaHei`;
                 const metrics = ctx.measureText(this.text);
                 this.width = metrics.width;
                 this.height = this.fontSize;
-                
-                // 随机位置（确保在屏幕内）
                 this.x = Math.random() * (canvas.width - this.width);
                 this.y = Math.random() * (canvas.height - this.height) + this.height;
-                
-                // 随机速度（屏保风格：较慢的速度）
                 const speed = isMain ? 2 : 1 + Math.random() * 2;
                 const angle = Math.random() * Math.PI * 2;
-                this.vx = Math.cos(angle) * speed;
-                this.vy = Math.sin(angle) * speed;
-                
-                // 确保不会静止不动
+                this.vx = Math.cos(angle) * speed * config.animationSpeed;
+                this.vy = Math.sin(angle) * speed * config.animationSpeed;
                 if (Math.abs(this.vx) < 0.5) this.vx = this.vx > 0 ? 1 : -1;
                 if (Math.abs(this.vy) < 0.5) this.vy = this.vy > 0 ? 1 : -1;
-                
-                // 随机颜色
-                this.color = rainbowColors[Math.floor(Math.random() * rainbowColors.length)];
-                
-                // 发光效果
-                this.glow = 10 + Math.random() * 20;
-                
-                // 旋转角度
+                this.color = themes[config.theme][Math.floor(Math.random() * themes[config.theme].length)];
+                this.glow = config.glowEffect ? 10 + Math.random() * 20 : 0;
                 this.rotation = 0;
-                this.rotationSpeed = (Math.random() - 0.5) * 0.02;
+                this.rotationSpeed = config.rotationEnabled ? (Math.random() - 0.5) * 0.02 : 0;
+                this.scale = 1;
+                this.scaleDirection = 0.005;
             }
             
             update() {
-                // 移动
+                if (config.paused) return;
+                
                 this.x += this.vx;
                 this.y += this.vy;
                 this.rotation += this.rotationSpeed;
                 
-                // 边界检测和反弹
-                if (this.x <= 0) {
-                    this.x = 0;
-                    this.vx = Math.abs(this.vx);
-                } else if (this.x + this.width >= canvas.width) {
-                    this.x = canvas.width - this.width;
-                    this.vx = -Math.abs(this.vx);
+                // 呼吸效果
+                this.scale += this.scaleDirection;
+                if (this.scale > 1.1 || this.scale < 0.9) {
+                    this.scaleDirection = -this.scaleDirection;
                 }
                 
-                if (this.y - this.height <= 0) {
-                    this.y = this.height;
-                    this.vy = Math.abs(this.vy);
-                } else if (this.y >= canvas.height) {
-                    this.y = canvas.height;
-                    this.vy = -Math.abs(this.vy);
+                if (config.bounceEffect) {
+                    if (this.x <= 0) { this.x = 0; this.vx = Math.abs(this.vx); }
+                    else if (this.x + this.width >= canvas.width) { this.x = canvas.width - this.width; this.vx = -Math.abs(this.vx); }
+                    if (this.y - this.height <= 0) { this.y = this.height; this.vy = Math.abs(this.vy); }
+                    else if (this.y >= canvas.height) { this.y = canvas.height; this.vy = -Math.abs(this.vy); }
+                } else {
+                    if (this.x < -this.width) this.x = canvas.width;
+                    else if (this.x > canvas.width) this.x = -this.width;
+                    if (this.y < -this.height) this.y = canvas.height + this.height;
+                    else if (this.y > canvas.height + this.height) this.y = 0;
                 }
                 
-                // 偶尔改变颜色
                 if (Math.random() < 0.001) {
-                    this.color = rainbowColors[Math.floor(Math.random() * rainbowColors.length)];
+                    this.color = themes[config.theme][Math.floor(Math.random() * themes[config.theme].length)];
                 }
             }
             
             draw() {
                 ctx.save();
-                
-                // 发光效果
-                ctx.shadowColor = this.color;
-                ctx.shadowBlur = this.glow;
-                
-                // 设置字体
+                if (config.glowEffect) {
+                    ctx.shadowColor = this.color;
+                    ctx.shadowBlur = this.glow;
+                }
                 ctx.font = `bold ${this.fontSize}px 'Segoe UI', Microsoft YaHei`;
                 ctx.fillStyle = this.color;
-                
-                // 绘制文字（带轻微旋转）
                 ctx.translate(this.x + this.width / 2, this.y - this.height / 2);
                 ctx.rotate(this.rotation);
+                ctx.scale(this.scale, this.scale);
                 ctx.fillText(this.text, -this.width / 2, this.height / 2);
-                
                 ctx.restore();
             }
         }
         
-        // 粒子背景效果
         class Particle {
             constructor() {
                 this.reset();
@@ -168,12 +794,16 @@
                 this.speedX = (Math.random() - 0.5) * 0.5;
                 this.speedY = (Math.random() - 0.5) * 0.5;
                 this.alpha = Math.random() * 0.5 + 0.2;
-                this.color = rainbowColors[Math.floor(Math.random() * rainbowColors.length)];
+                this.color = themes[config.theme][Math.floor(Math.random() * themes[config.theme].length)];
+                this.pulse = 0;
             }
             
             update() {
+                if (config.paused) return;
+                
                 this.x += this.speedX;
                 this.y += this.speedY;
+                this.pulse += 0.05;
                 
                 if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
                     this.reset();
@@ -182,7 +812,7 @@
             
             draw() {
                 ctx.save();
-                ctx.globalAlpha = this.alpha;
+                ctx.globalAlpha = this.alpha + Math.sin(this.pulse) * 0.2;
                 ctx.fillStyle = this.color;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -191,61 +821,261 @@
             }
         }
         
-        // 创建文字实例
-        const texts = [];
-        
-        // 主文字
-        texts.push(new FloatingText('淇淇好萌 ✨', true));
-        texts.push(new FloatingText('💖 淇淇', true));
-        texts.push(new FloatingText('✨ 超萌', true));
-        
-        // 小装饰文字
-        const decorations = ['可爱', '萌萌哒', '哇~', '❤', '🌟', '💕', '✨', '🎀'];
-        for (let i = 0; i < 15; i++) {
-            texts.push(new FloatingText(decorations[Math.floor(Math.random() * decorations.length)], false));
+        // ==================== 初始化 ====================
+        function init() {
+            texts = [];
+            particles = [];
+            
+            // 添加主文字
+            config.mainText.forEach(text => {
+                if (text.trim()) texts.push(new FloatingText(text.trim(), true));
+            });
+            
+            // 添加装饰文字
+            for (let i = 0; i < config.textCount; i++) {
+                const text = config.subText[Math.floor(Math.random() * config.subText.length)];
+                texts.push(new FloatingText(text, false));
+            }
+            
+            // 添加粒子
+            for (let i = 0; i < config.particleCount; i++) {
+                particles.push(new Particle());
+            }
         }
         
-        // 创建粒子
-        const particles = [];
-        for (let i = 0; i < 50; i++) {
-            particles.push(new Particle());
+        // ==================== 动画循环 ====================
+        function updateClock() {
+            if (!config.showClock) return;
+            const clock = document.getElementById('clock');
+            const now = new Date();
+            clock.textContent = now.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
         }
         
-        // 动画循环
         function animate() {
-            // 清除画布（带拖尾效果）
-            ctx.fillStyle = 'rgba(26, 26, 46, 0.2)';
+            ctx.fillStyle = 'rgba(26, 26, 46, 0.15)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // 更新和绘制粒子
-            particles.forEach(p => {
-                p.update();
-                p.draw();
-            });
+            particles.forEach(p => { p.update(); p.draw(); });
+            texts.forEach(t => { t.update(); t.draw(); });
             
-            // 更新和绘制文字
-            texts.forEach(t => {
-                t.update();
-                t.draw();
-            });
-            
-            requestAnimationFrame(animate);
+            updateClock();
+            animationId = requestAnimationFrame(animate);
         }
+        
+        // ==================== 交互 ====================
+        // 鼠标交互
+        canvas.addEventListener('mousemove', (e) => {
+            if (!config.mouseInteraction || config.paused) return;
+            
+            texts.forEach(t => {
+                const dx = t.x + t.width / 2 - e.clientX;
+                const dy = t.y - t.height / 2 - e.clientY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 100) {
+                    t.vx += dx * 0.001;
+                    t.vy += dy * 0.001;
+                }
+            });
+        });
         
         // 点击添加文字
         canvas.addEventListener('click', (e) => {
+            if (e.target.closest('.control-panel')) return;
+            
             const newText = new FloatingText('淇淇!', false);
             newText.x = e.clientX;
             newText.y = e.clientY;
             texts.push(newText);
             
-            // 限制文字数量
-            if (texts.length > 25) {
-                texts.splice(3, 1); // 保留前3个主文字
+            if (texts.length > config.textCount + config.mainText.length + 10) {
+                texts.splice(config.mainText.length, 1);
             }
         });
         
-        // 启动动画
+        // ==================== UI 控制 ====================
+        const menuBtn = document.getElementById('menuBtn');
+        const submenu = document.getElementById('submenu');
+        
+        menuBtn.addEventListener('click', () => {
+            menuBtn.classList.toggle('active');
+            submenu.classList.toggle('active');
+        });
+        
+        // 点击外部关闭菜单
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.control-panel')) {
+                menuBtn.classList.remove('active');
+                submenu.classList.remove('active');
+            }
+        });
+        
+        // 预设按钮
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                const preset = presets[btn.dataset.preset];
+                if (preset) {
+                    Object.assign(config, preset);
+                    applyConfig();
+                    updateUI();
+                    showToast(`已应用预设: ${btn.textContent}`);
+                }
+            });
+        });
+        
+        // 颜色主题
+        document.querySelectorAll('.color-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                config.theme = opt.dataset.theme;
+            });
+        });
+        
+        // 滑块更新
+        function bindSlider(id, configKey, suffix = '') {
+            const slider = document.getElementById(id);
+            const valueLabel = document.getElementById(id + 'Value');
+            
+            slider.addEventListener('input', () => {
+                config[configKey] = parseFloat(slider.value);
+                valueLabel.textContent = slider.value + suffix;
+            });
+        }
+        
+        bindSlider('speed', 'animationSpeed', 'x');
+        bindSlider('textCount', 'textCount');
+        bindSlider('particleCount', 'particleCount');
+        bindSlider('fontSize', 'fontSize');
+        
+        // 背景风格
+        document.getElementById('bgStyle').addEventListener('change', (e) => {
+            config.backgroundStyle = e.target.value;
+            document.body.style.background = backgrounds[config.backgroundStyle];
+        });
+        
+        // 复选框
+        document.getElementById('glowEffect').addEventListener('change', (e) => {
+            config.glowEffect = e.target.checked;
+        });
+        
+        document.getElementById('rotationEffect').addEventListener('change', (e) => {
+            config.rotationEnabled = e.target.checked;
+        });
+        
+        document.getElementById('bounceEffect').addEventListener('change', (e) => {
+            config.bounceEffect = e.target.checked;
+        });
+        
+        document.getElementById('showClock').addEventListener('change', (e) => {
+            config.showClock = e.target.checked;
+            document.getElementById('clock').classList.toggle('hidden', !config.showClock);
+        });
+        
+        document.getElementById('mouseInteraction').addEventListener('change', (e) => {
+            config.mouseInteraction = e.target.checked;
+        });
+        
+        // 应用按钮
+        document.getElementById('applyBtn').addEventListener('click', () => {
+            config.mainText = document.getElementById('mainText').value.split(',').map(s => s.trim()).filter(s => s);
+            config.subText = document.getElementById('subText').value.split(',').map(s => s.trim()).filter(s => s);
+            
+            applyConfig();
+            showToast('设置已应用!');
+            menuBtn.classList.remove('active');
+            submenu.classList.remove('active');
+        });
+        
+        // 重置按钮
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            Object.assign(config, presets.default);
+            document.getElementById('mainText').value = "淇淇好萌 ✨,💖 淇淇,✨ 超萌";
+            document.getElementById('subText').value = "可爱,萌萌哒,哇~,❤,🌟,💕,✨,🎀,💝,💗";
+            applyConfig();
+            updateUI();
+            showToast('已恢复默认设置');
+        });
+        
+        // 应用配置
+        function applyConfig() {
+            document.body.style.background = backgrounds[config.backgroundStyle];
+            document.getElementById('clock').classList.toggle('hidden', !config.showClock);
+            init();
+        }
+        
+        // 更新 UI
+        function updateUI() {
+            document.getElementById('speed').value = config.animationSpeed;
+            document.getElementById('speedValue').textContent = config.animationSpeed + 'x';
+            document.getElementById('textCount').value = config.textCount;
+            document.getElementById('textCountValue').textContent = config.textCount;
+            document.getElementById('particleCount').value = config.particleCount;
+            document.getElementById('particleCountValue').textContent = config.particleCount;
+            document.getElementById('fontSize').value = config.fontSize;
+            document.getElementById('fontSizeValue').textContent = config.fontSize;
+            document.getElementById('bgStyle').value = config.backgroundStyle;
+            document.getElementById('glowEffect').checked = config.glowEffect;
+            document.getElementById('rotationEffect').checked = config.rotationEnabled;
+            document.getElementById('bounceEffect').checked = config.bounceEffect;
+            document.getElementById('showClock').checked = config.showClock;
+            
+            document.querySelectorAll('.color-option').forEach(o => {
+                o.classList.toggle('active', o.dataset.theme === config.theme);
+            });
+            
+            document.querySelectorAll('.preset-btn').forEach(b => {
+                b.classList.remove('active');
+            });
+        }
+        
+        // Toast 提示
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+        
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            switch(e.key.toLowerCase()) {
+                case 's':
+                    menuBtn.click();
+                    break;
+                case 'f':
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen();
+                    } else {
+                        document.exitFullscreen();
+                    }
+                    break;
+                case 'r':
+                    document.getElementById('resetBtn').click();
+                    break;
+                case ' ':
+                    config.paused = !config.paused;
+                    showToast(config.paused ? '已暂停' : '已恢复');
+                    e.preventDefault();
+                    break;
+                case 'escape':
+                    if (submenu.classList.contains('active')) {
+                        menuBtn.classList.remove('active');
+                        submenu.classList.remove('active');
+                    }
+                    break;
+            }
+        });
+        
+        // ==================== 启动 ====================
+        init();
         animate();
     </script>
 </body>
