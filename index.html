@@ -577,6 +577,39 @@
             color: white;
         }
         
+        /* 点击启动覆盖层 */
+        .audio-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2500;
+            cursor: pointer;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .audio-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .audio-overlay-text {
+            background: rgba(155, 89, 182, 0.9);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 50px;
+            font-size: 18px;
+            backdrop-filter: blur(10px);
+            animation: pulse 2s infinite;
+        }
+        
         /* 启动音频提示弹窗 */
         .audio-start-modal {
             position: fixed;
@@ -643,6 +676,11 @@
             </div>
             <div class="beat-indicator" id="beatIndicator"></div>
         </div>
+    </div>
+    
+    <!-- 点击启动音频覆盖层 -->
+    <div class="audio-overlay" id="audioOverlay">
+        <div class="audio-overlay-text">🎵 点击任意处启动音频可视化</div>
     </div>
     
     <!-- 音频启动提示 -->
@@ -856,7 +894,7 @@
         const config = {
             mainText: ["淇淇好萌 ✨", "💖 淇淇", "✨ 超萌"],
             subText: ["可爱", "萌萌哒", "哇~", "❤", "🌟", "💕", "✨", "🎀"],
-            theme: "rainbow",
+            theme: "pink",
             animationSpeed: 0.7,
             particleCount: 80,
             textCount: 20,
@@ -868,8 +906,9 @@
             mouseInteraction: true,
             backgroundStyle: "gradient",
             paused: false,
-            // 音频配置
-            audioEnabled: false,
+            // 音频配置 - 屏保模式自动启动
+            audioEnabled: true,
+            audioAutoStart: true,  // 自动启动音频
             audioMode: "circular",
             audioSensitivity: 2
         };
@@ -1043,9 +1082,13 @@
             } else if (status === 'error' || status === 'unsupported') {
                 audioBtn.textContent = '❌ ' + message;
                 audioBtn.disabled = true;
+            } else if (status === 'unsupported') {
+                audioBtn.textContent = '❌ 浏览器不支持';
+                audioBtn.disabled = true;
             } else {
                 audioBtn.textContent = '🎤 启动麦克风可视化';
                 audioBtn.classList.remove('active');
+                audioBtn.disabled = false;
             }
         }
         
@@ -1087,6 +1130,7 @@
                 document.getElementById('audioInfo').classList.add('active');
                 
                 showToast('🎵 音频可视化已启动！');
+                hideAudioOverlay(); // 确保覆盖层隐藏
                 return true;
             } catch (err) {
                 console.error('音频初始化失败:', err);
@@ -1148,7 +1192,7 @@
             
             // 检测节拍
             const bassAvg = bassSum / bassRange;
-            const beatThreshold = ;
+            const beatThreshold = 120;
             if (bassAvg > beatThreshold && !beatDetected) {
                 beatDetected = true;
                 document.getElementById('beatIndicator').classList.add('active');
@@ -1560,6 +1604,24 @@
         
         // 音频控制
         const audioToggleBtn = document.getElementById('audioToggleBtn');
+        const audioOverlay = document.getElementById('audioOverlay');
+        
+        function showAudioOverlay() {
+            if (!config.audioEnabled || isAudioInitialized) return;
+            audioOverlay.classList.add('show');
+        }
+        
+        function hideAudioOverlay() {
+            audioOverlay.classList.remove('show');
+        }
+        
+        // 点击覆盖层启动音频
+        audioOverlay.addEventListener('click', async () => {
+            const success = await initAudio();
+            if (success) {
+                hideAudioOverlay();
+            }
+        });
         
         function showAudioModal() {
             if (!checkAudioSupport()) {
@@ -1783,14 +1845,30 @@
             }
         });
         
-        // 检查浏览器支持
-        if (!checkAudioSupport()) {
-            updateAudioStatus('error', '需要 HTTPS');
-        }
-        
         // ==================== 启动 ====================
         init();
         animate();
+        
+        // 更新音频按钮初始状态
+        if (config.audioAutoStart) {
+            updateAudioStatus('waiting', '自动启动中...');
+        }
+        
+        // 检查浏览器支持并自动启动音频（针对屏保软件）
+        if (config.audioAutoStart && checkAudioSupport()) {
+            // 延迟一点启动，确保页面已就绪
+            setTimeout(() => {
+                initAudio().then(success => {
+                    if (success) {
+                        console.log('🎵 音频自动启动成功');
+                    } else {
+                        console.log('⚠️ 音频自动启动失败，可能需要用户交互');
+                        // 如果自动启动失败，添加一个点击启动层
+                        showAudioOverlay();
+                    }
+                });
+            }, 500);
+        }
     </script>
 </body>
 </html>
