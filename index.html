@@ -906,9 +906,8 @@
             mouseInteraction: true,
             backgroundStyle: "gradient",
             paused: false,
-            // 音频配置 - 屏保模式自动启动
-            audioEnabled: true,
-            audioAutoStart: true,  // 自动启动音频
+            // 音频配置
+            audioEnabled: false,
             audioMode: "circular",
             audioSensitivity: 2
         };
@@ -1153,6 +1152,7 @@
                 
                 config.audioEnabled = true;
                 isAudioInitialized = true;
+                isAudioInitializing = false;
                 initSpectrumBars();
                 
                 updateAudioStatus('active', '运行中');
@@ -1211,6 +1211,7 @@
             analyser = null;
             dataArray = null;
             frequencyData = null;
+            config.audioEnabled = false;
             isAudioInitialized = false;
             isAudioInitializing = false;
             audioLevel = 0;
@@ -1704,11 +1705,9 @@
         }
         
         audioToggleBtn.addEventListener('click', () => {
-            if (isAudioInitialized) {
-                // 如果已经初始化，停止音频
+            if (config.audioEnabled) {
                 stopAudio();
             } else {
-                // 如果未初始化，尝试启动
                 showAudioModal();
             }
         });
@@ -1919,48 +1918,8 @@
         // 设置初始背景
         document.body.style.background = backgrounds[config.backgroundStyle];
         
-        // 如果音频启用，显示音频面板
-        if (config.audioEnabled) {
-            document.getElementById('audioInfo').style.opacity = '1';
-            document.getElementById('audioInfo').style.visibility = 'visible';
-        }
-        
         init();
         animate();
-        
-        // 更新音频按钮初始状态
-        if (config.audioAutoStart) {
-            updateAudioStatus('waiting', '自动启动中...');
-        }
-        
-        // 音频自动启动（非阻塞方式）
-        if (config.audioAutoStart && checkAudioSupport()) {
-            // 使用更短的延迟，并确保不会阻塞页面
-            setTimeout(async () => {
-                try {
-                    // 尝试自动启动，但设置超时防止一直等待
-                    const timeoutPromise = new Promise((_, reject) => {
-                        setTimeout(() => reject(new Error('timeout')), 3000);
-                    });
-                    
-                    const result = await Promise.race([
-                        initAudio(),
-                        timeoutPromise
-                    ]);
-                    
-                    if (result) {
-                        console.log('🎵 音频自动启动成功');
-                    } else {
-                        console.log('⚠️ 音频自动启动被拒绝');
-                        showAudioOverlay();
-                    }
-                } catch (err) {
-                    console.log('⚠️ 音频启动失败:', err.message);
-                    // 不显示错误，直接显示点击覆盖层
-                    showAudioOverlay();
-                }
-            }, 100);
-        }
     </script>
 </body>
 </html>
