@@ -1143,11 +1143,12 @@
             }
             
             const rms = Math.sqrt(sum / dataArray.length);
-            audioLevel = Math.min(100, rms * 100 * config.audioSensitivity);
+            // 提高基础灵敏度，让轻声也能触发
+            audioLevel = Math.min(100, rms * 200 * config.audioSensitivity);
             
             // 检测节拍
             const bassAvg = bassSum / bassRange;
-            const beatThreshold = 80;
+            const beatThreshold = ;
             if (bassAvg > beatThreshold && !beatDetected) {
                 beatDetected = true;
                 document.getElementById('beatIndicator').classList.add('active');
