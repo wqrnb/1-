@@ -1040,6 +1040,7 @@
         let beatDetected = false;
         let beatTimeout = null;
         let isAudioInitialized = false;
+        let isAudioInitializing = false;
         
         // 频谱柱状图
         let spectrumBars = [];
@@ -1081,14 +1082,18 @@
                 statusEl.className = 'audio-status ' + status;
             }
             
+            if (!audioBtn) return;
+            
             if (status === 'active') {
                 audioBtn.textContent = '⏹️ 停止音频可视化';
                 audioBtn.classList.add('active');
+                audioBtn.disabled = false;
             } else if (status === 'error' || status === 'unsupported') {
-                audioBtn.textContent = '❌ ' + message;
+                audioBtn.textContent = '❌ ' + (status === 'unsupported' ? '浏览器不支持' : message);
                 audioBtn.disabled = true;
-            } else if (status === 'unsupported') {
-                audioBtn.textContent = '❌ 浏览器不支持';
+            } else if (status === 'waiting') {
+                audioBtn.textContent = '⏳ ' + message;
+                audioBtn.classList.remove('active');
                 audioBtn.disabled = true;
             } else {
                 audioBtn.textContent = '🎤 启动麦克风可视化';
@@ -1099,25 +1104,45 @@
         
         async function initAudio() {
             if (!checkAudioSupport()) {
-                showToast('❌ 当前环境不支持音频可视化');
                 return false;
             }
+            
+            // 如果已经在初始化中，直接返回
+            if (isAudioInitializing) {
+                return false;
+            }
+            
+            isAudioInitializing = true;
             
             try {
                 updateAudioStatus('waiting', '启动中...');
                 
+                // 创建音频上下文
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // 如果音频上下文被暂停（浏览器策略），尝试恢复
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
                 analyser = audioContext.createAnalyser();
                 analyser.fftSize = 256;
                 analyser.smoothingTimeConstant = 0.8;
                 
-                const stream = await navigator.mediaDevices.getUserMedia({ 
+                // 使用更短的超时防止卡住
+                const streamPromise = navigator.mediaDevices.getUserMedia({ 
                     audio: {
                         echoCancellation: false,
                         noiseSuppression: false,
                         autoGainControl: false
                     }
                 });
+                
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('getUserMedia timeout')), 5000);
+                });
+                
+                const stream = await Promise.race([streamPromise, timeoutPromise]);
                 
                 microphone = audioContext.createMediaStreamSource(stream);
                 microphone.connect(analyser);
@@ -1134,35 +1159,61 @@
                 document.getElementById('audioSource').textContent = '麦克风';
                 document.getElementById('audioInfo').classList.add('active');
                 
+                hideAudioOverlay();
                 showToast('🎵 音频可视化已启动！');
-                hideAudioOverlay(); // 确保覆盖层隐藏
+                
+                isAudioInitializing = false;
                 return true;
             } catch (err) {
                 console.error('音频初始化失败:', err);
-                let errorMsg = '权限被拒绝';
-                if (err.name === 'NotAllowedError') {
-                    errorMsg = '麦克风权限被拒绝';
+                isAudioInitializing = false;
+                
+                // 清理资源
+                if (audioContext) {
+                    audioContext.close().catch(() => {});
+                    audioContext = null;
+                }
+                
+                let errorMsg = '启动失败';
+                if (err.name === 'NotAllowedError' || err.message.includes('Permission')) {
+                    errorMsg = '需要点击授权';
                 } else if (err.name === 'NotFoundError') {
                     errorMsg = '未找到麦克风';
+                } else if (err.message === 'getUserMedia timeout') {
+                    errorMsg = '启动超时';
                 }
-                updateAudioStatus('error', errorMsg);
-                showToast('❌ ' + errorMsg);
+                
+                updateAudioStatus('waiting', errorMsg);
                 return false;
             }
         }
         
         function stopAudio() {
+            // 停止所有音频轨道
+            if (microphone && microphone.mediaStream) {
+                microphone.mediaStream.getTracks().forEach(track => track.stop());
+            }
+            
             if (microphone) {
-                microphone.disconnect();
+                try {
+                    microphone.disconnect();
+                } catch(e) {}
                 microphone = null;
             }
+            
             if (audioContext) {
-                audioContext.close();
+                try {
+                    audioContext.close();
+                } catch(e) {}
                 audioContext = null;
             }
+            
             analyser = null;
-            config.audioEnabled = false;
+            dataArray = null;
+            frequencyData = null;
             isAudioInitialized = false;
+            isAudioInitializing = false;
+            audioLevel = 0;
             
             updateAudioStatus('waiting', '已停止');
             document.getElementById('audioSource').textContent = '-';
@@ -1172,10 +1223,16 @@
         }
         
         function analyzeAudio() {
-            if (!analyser || !config.audioEnabled) return;
+            if (!analyser || !config.audioEnabled || !isAudioInitialized) return;
+            if (!dataArray || !frequencyData) return;
             
-            analyser.getByteTimeDomainData(dataArray);
-            analyser.getByteFrequencyData(frequencyData);
+            try {
+                analyser.getByteTimeDomainData(dataArray);
+                analyser.getByteFrequencyData(frequencyData);
+            } catch (e) {
+                // 如果获取数据失败，静默处理
+                return;
+            }
             
             // 计算音量
             let sum = 0;
@@ -1622,9 +1679,15 @@
         
         // 点击覆盖层启动音频
         audioOverlay.addEventListener('click', async () => {
+            hideAudioOverlay(); // 立即隐藏覆盖层
             const success = await initAudio();
-            if (success) {
-                hideAudioOverlay();
+            if (!success) {
+                // 如果失败，3秒后重新显示覆盖层
+                setTimeout(() => {
+                    if (!isAudioInitialized) {
+                        showAudioOverlay();
+                    }
+                }, 3000);
             }
         });
         
@@ -1641,9 +1704,11 @@
         }
         
         audioToggleBtn.addEventListener('click', () => {
-            if (config.audioEnabled) {
+            if (isAudioInitialized) {
+                // 如果已经初始化，停止音频
                 stopAudio();
             } else {
+                // 如果未初始化，尝试启动
                 showAudioModal();
             }
         });
@@ -1868,23 +1933,33 @@
             updateAudioStatus('waiting', '自动启动中...');
         }
         
-        // 检查浏览器支持并自动启动音频（针对屏保软件）
+        // 音频自动启动（非阻塞方式）
         if (config.audioAutoStart && checkAudioSupport()) {
-            // 延迟一点启动，确保页面已就绪
-            setTimeout(() => {
-                initAudio().then(success => {
-                    if (success) {
+            // 使用更短的延迟，并确保不会阻塞页面
+            setTimeout(async () => {
+                try {
+                    // 尝试自动启动，但设置超时防止一直等待
+                    const timeoutPromise = new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error('timeout')), 3000);
+                    });
+                    
+                    const result = await Promise.race([
+                        initAudio(),
+                        timeoutPromise
+                    ]);
+                    
+                    if (result) {
                         console.log('🎵 音频自动启动成功');
                     } else {
-                        console.log('⚠️ 音频自动启动失败，可能需要用户交互');
-                        // 如果自动启动失败，添加一个点击启动层
+                        console.log('⚠️ 音频自动启动被拒绝');
                         showAudioOverlay();
                     }
-                }).catch(err => {
-                    console.error('音频启动出错:', err);
+                } catch (err) {
+                    console.log('⚠️ 音频启动失败:', err.message);
+                    // 不显示错误，直接显示点击覆盖层
                     showAudioOverlay();
-                });
-            }, 1000); // 增加延迟确保页面完全就绪
+                }
+            }, 100);
         }
     </script>
 </body>
