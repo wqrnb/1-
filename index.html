@@ -972,7 +972,6 @@
                 backgroundStyle: "gradient",
                 audioMode: "circular"
             },
-            classic: {
             energy: {
                 theme: "warm",
                 animationSpeed: 2,
@@ -1019,11 +1018,17 @@
         let animationId;
         
         function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            canvas.width = window.innerWidth || document.documentElement.clientWidth || 1920;
+            canvas.height = window.innerHeight || document.documentElement.clientHeight || 1080;
         }
         resize();
         window.addEventListener('resize', resize);
+        
+        // 确保页面完全加载后再次调整尺寸
+        window.addEventListener('load', () => {
+            resize();
+            init();
+        });
         
         // ==================== 音频可视化 ====================
         let audioContext = null;
@@ -1846,6 +1851,15 @@
         });
         
         // ==================== 启动 ====================
+        // 设置初始背景
+        document.body.style.background = backgrounds[config.backgroundStyle];
+        
+        // 如果音频启用，显示音频面板
+        if (config.audioEnabled) {
+            document.getElementById('audioInfo').style.opacity = '1';
+            document.getElementById('audioInfo').style.visibility = 'visible';
+        }
+        
         init();
         animate();
         
@@ -1866,8 +1880,11 @@
                         // 如果自动启动失败，添加一个点击启动层
                         showAudioOverlay();
                     }
+                }).catch(err => {
+                    console.error('音频启动出错:', err);
+                    showAudioOverlay();
                 });
-            }, 500);
+            }, 1000); // 增加延迟确保页面完全就绪
         }
     </script>
 </body>
