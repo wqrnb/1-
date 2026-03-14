@@ -697,11 +697,11 @@
             <div class="submenu-section">
                 <h3>⚡ 快速预设</h3>
                 <div class="presets">
-                    <button class="preset-btn active" data-preset="default">默认</button>
-                    <button class="preset-btn" data-preset="romantic">浪漫</button>
-                    <button class="preset-btn" data-preset="energy">活力</button>
-                    <button class="preset-btn" data-preset="minimal">极简</button>
-                    <button class="preset-btn" data-preset="party">派对</button>
+                    <button class="preset-btn active" data-preset="default">💕 浪漫</button>
+                    <button class="preset-btn" data-preset="classic">🌈 经典</button>
+                    <button class="preset-btn" data-preset="energy">🔥 活力</button>
+                    <button class="preset-btn" data-preset="minimal">⚪ 极简</button>
+                    <button class="preset-btn" data-preset="party">🎉 派对</button>
                 </div>
             </div>
             
@@ -857,12 +857,12 @@
             mainText: ["淇淇好萌 ✨", "💖 淇淇", "✨ 超萌"],
             subText: ["可爱", "萌萌哒", "哇~", "❤", "🌟", "💕", "✨", "🎀"],
             theme: "rainbow",
-            animationSpeed: 1,
-            particleCount: 50,
-            textCount: 15,
-            fontSize: 80,
+            animationSpeed: 0.7,
+            particleCount: 80,
+            textCount: 20,
+            fontSize: 70,
             glowEffect: true,
-            rotationEnabled: true,
+            rotationEnabled: false,
             bounceEffect: true,
             showClock: false,
             mouseInteraction: true,
@@ -870,7 +870,7 @@
             paused: false,
             // 音频配置
             audioEnabled: false,
-            audioMode: "particles",
+            audioMode: "circular",
             audioSensitivity: 2
         };
         
@@ -898,6 +898,18 @@
         // 预设配置
         const presets = {
             default: {
+                theme: "pink",
+                animationSpeed: 0.7,
+                particleCount: 80,
+                textCount: 20,
+                fontSize: 70,
+                glowEffect: true,
+                rotationEnabled: false,
+                bounceEffect: true,
+                backgroundStyle: "gradient",
+                audioMode: "circular"
+            },
+            classic: {
                 theme: "rainbow",
                 animationSpeed: 1,
                 particleCount: 50,
@@ -921,6 +933,7 @@
                 backgroundStyle: "gradient",
                 audioMode: "circular"
             },
+            classic: {
             energy: {
                 theme: "warm",
                 animationSpeed: 2,
@@ -1134,7 +1147,7 @@
             
             // 检测节拍
             const bassAvg = bassSum / bassRange;
-            const beatThreshold = 150;
+            const beatThreshold = 80;
             if (bassAvg > beatThreshold && !beatDetected) {
                 beatDetected = true;
                 document.getElementById('beatIndicator').classList.add('active');
@@ -1674,12 +1687,22 @@
         
         // 重置按钮
         document.getElementById('resetBtn').addEventListener('click', () => {
+            // 恢复浪漫配置
             Object.assign(config, presets.default);
             document.getElementById('mainText').value = "淇淇好萌 ✨,💖 淇淇,✨ 超萌";
             document.getElementById('subText').value = "可爱,萌萌哒,哇~,❤,🌟,💕,✨,🎀,💝,💗";
             applyConfig();
             updateUI();
-            showToast('已恢复默认设置');
+            
+            // 确保浪漫按钮高亮
+            document.querySelectorAll('.preset-btn').forEach(b => {
+                b.classList.remove('active');
+                if (b.dataset.preset === 'default') {
+                    b.classList.add('active');
+                }
+            });
+            
+            showToast('已恢复浪漫模式 💕');
         });
         
         function applyConfig() {
